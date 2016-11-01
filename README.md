@@ -26,7 +26,7 @@ library(lhs)
 ```
 
 ## Instructions
-* Download the Rfiles
+* Download the RFILES folder.
 * Download the data. How to obtain the data is stated in the Appendix of the paper.
 * Open the `.R` files in R or Rstudio. Change the paths in the `source` and `read.csv` to point to your directory with the appropriate files.
 * Source the `main_script.R` file. `main_script.R` executes the scripts in the right order and produces the main figures in the paper.
