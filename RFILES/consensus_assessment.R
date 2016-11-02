@@ -10,32 +10,35 @@ library(lhs)
 library(ggplot2)
 library(grid)
 library(gridExtra)
+library(rriskDistributions)
 
+# Function to plot two plots along the same axis
 source("ggplot_dual_axis.R")
+# different strategies to estimate parameters from median and higher quantile
+# and sample
 source("sampling_strategies.R")
-source("set_theme_AB.R")
-source("get_legend.R")
-theme_set(theme_ali(base_size=14))
 
-# read projected GSL and (component) ranges
+# read projected ice sheet ranges
 df <- read.csv("../../data/Bamber2013.csv")
 df <- df[which(df$Elicitation==2012 & df$Sheet=="WAIS"),-3:-4] # sample WAIS and elicitation 2012
 
+# ================================================================================================
 # integrate to cumulative SLR contribution, assuming linear increase of melt rate
 # and zero [mm/yr] WAIS contribution around 1995
 df[3:5] <- df[3:5] * (2090-1995)/(2100-1995)      # rate at 2090 assuming linear increase of rate
 df[3:5] <- ((2090-1995) * df[3:5] / 2 ) / 1000    # factor 1000 to convert from [mm] to [m]
 
-experts <- which(df$agg==FALSE)                   # row-numbers with 'expert' estimates
+# Extract row-numbers with 'expert' estimates
+experts <- which(df$agg==FALSE)                   
 
-# median of expert quantile estimates
+# Estimate median of expert quantile estimates
 df <- rbind(df,
             data.frame(expert="Median",agg=TRUE,
                        p05=median(df$p05[experts]),
                        p50=median(df$p50[experts]),
                        p95=median(df$p95[experts])))
 
-# max range
+# Estimate max range
 df <- rbind(df,
             data.frame(expert="MaxRange",agg=TRUE,
                        p05=min(df$p05[experts]),
@@ -47,7 +50,7 @@ pl = 0.05              # non-exceedance probability, lower quantile estimate
 ph = 0.95              # non-exceedance probability, upper quantile estimate
 mx = 3.3               # maximum ice sheet contribution WAIS
 
-# cumulative distribution function fits
+# Estimate cumulative distribution function fits
 cdf   <- data.frame(expert=NULL,agg=NULL,pp=NULL,qq=NULL) # lognormal based
 cdf.b <- data.frame(expert=NULL,agg=NULL,pp=NULL,qq=NULL) # beta      based
 
@@ -177,7 +180,9 @@ df.b.m$expert <- levels(df.m$expert)[as.numeric(df.m$expert)]
 df.b.m$expert[which(df.m$agg==FALSE)] <- "Expert"
 df.b.m$expert <- factor(df.m$expert, levels=unique(df.m$expert))
 
+# ================================================================================================
 # define colors, sizes and shapes, types used in plots
+# ================================================================================================
 colors <- c("Expert"     = "black",
             "EqualWts"   = "green",
             "PerfWts"    = "purple",
@@ -213,8 +218,9 @@ types <- c("Expert"      = types[1],
             "Integrated" = types[1],
             "Uniform"    = types[2])
 
+# ================================================================================================
 ## PLOTTING log-normal based quantile-functions ##
-
+# ================================================================================================
 # function to reverse log-scale axis)
 library("scales")
 reverselog_trans <- function(base = exp(1)) {
@@ -253,13 +259,20 @@ p5 <- ggplot(data=cdf[aggs,], aes(x=1-pp, y=qq)) +
         legend.key.height = unit(1,"lines"),
         legend.key=element_blank(),
         legend.text = element_text(size = 16),
-        legend.background = element_rect(fill=alpha('white', 0.0)) )
+        legend.background = element_rect(fill=alpha('white', 0.0)), 
+       panel.background = element_blank(),                                    # clear background color
+       panel.grid.major = element_blank(),                                    # remove major grid
+       panel.grid.minor = element_blank(),                                    # remove major grid
+       panel.border = element_rect(colour = "black", fill=NA, size=1))        # add border around the plot
 
+# Save quantile pdf
 pdf("../../figures/quantile_functions_expert_judgments.pdf", paper="special", width=8, height=8/1.618)
 print(p5)
 dev.off()
 
+# ================================================================================================
 ## PLOT SURVIVAL FUNCTIONS ##
+# ================================================================================================
 label.positions <- c(0.001,0.01,0.1,1)
 breaks          <- c(0.001*(1:9), 0.01*(1:9), 0.1*(1:9), 1)
 empty.labels <- rep("",length(breaks))
@@ -271,8 +284,6 @@ labels[label.positions] <-
   breaks[label.positions]
 
 # basis plot
-#legend.position=c(0.9,0.75),                          # legend
-
 p.base <- ggplot(data=cdf[aggs,], aes(y=1-pp, x=qq)) +       # default aestetics
   geom_vline(xintercept=0:4, size=0.25, color='grey', linetype='dashed') +
   geom_hline(yintercept=c(0.001,0.01,0.1,1), size=0.25, color='grey', linetype='dashed') +
@@ -287,12 +298,6 @@ p.base <- ggplot(data=cdf[aggs,], aes(y=1-pp, x=qq)) +       # default aestetics
                 labels=labels) +
   labs(x="West-Antarctic ice sheet contribution to sea level rise [m]\n(1995-2090)",                  # labels
        y="Probability of exceedance [-]") +
-#  theme(legend.position='bottom',                          # legend for 2 column journal
-#        legend.key.height = unit(1.5,"lines"),                 # legend
-#        legend.key=element_blank(),
-#        legend.text = element_text(size = 12),
-#        legend.background = element_rect(fill=alpha('white', 0.0)) ) +
-#  guides(col = guide_legend(ncol = 3, byrow = FALSE))
   theme(legend.position='right',                          # legend for 1  column journal
       legend.key.height = unit(1.5,"lines"),                 # legend
       legend.key=element_blank(),
@@ -322,7 +327,11 @@ p3 <- p.base +
   geom_point(data=df.b.m,       aes(color=expert, shape=expert, linetype=expert), size=2) +
   geom_line( data=cdf.b[exps,], aes(group=expert, color="Expert"), size=0.8) +
   geom_line( data=cdf.b[aggs,], aes(color=expert, linetype=expert), size=0.8) +
-  geom_point(data=df.b.m,       aes(color=expert, shape=expert), size=2)
+  geom_point(data=df.b.m,       aes(color=expert, shape=expert), size=2) +
+  theme(        panel.background = element_blank(),                                    # clear background color
+                #panel.grid.major = element_blank(),                                    # remove major grid
+                panel.grid.minor = element_blank(),                                    # remove major grid
+                panel.border = element_rect(colour = "black", fill=NA, size=1))      # add border around the plot
 
 
 p4 <- p3 +
@@ -335,7 +344,7 @@ p4 <- p3 +
 g2 <- ggplot_dual_axis(p3, p4, which.axis = "x")
 grid.draw(g2)
 
-
+# Save log normal survival function pdf 
 pdf("../../figures/survival_functions_lnormal_expert_estimates.pdf", paper="special", width=5, height=6/1.618)
 grid.draw(g1)
 dev.off()
@@ -345,6 +354,9 @@ dev.off()
 #print(p3)#grid.draw(g2)
 #dev.off()
 
+# ================================================================================================
+# Save as pdf (figure 3)
+# ================================================================================================
 # for 1 column journal
 pdf("../../figures/survival_functions_beta_expert_estimates.pdf", paper="special", width=7.5, height=6/1.618)
 print(p3)#grid.draw(g2)
@@ -353,3 +365,5 @@ dev.off()
 postscript("../../figures/survival_functions_beta_expert_estimates.eps", paper="special", width=7.5, height=6/1.618)
 print(p3)#grid.draw(g2)
 dev.off()
+# ================================================================================================
+              
