@@ -1,6 +1,7 @@
-# different strategies to estimate parameters from median and higher quantile
+# Different strategies to estimate parameters from median and higher quantile
 # and sample
 
+# Sample normal distribution
 sample.normal <- function(q50, qh, ph, pp) {
   mean <- q50                  # median equals mean
   dist <- qnorm(ph)            # qh / sd
@@ -8,7 +9,7 @@ sample.normal <- function(q50, qh, ph, pp) {
   return(qnorm(pp, mean=mean, sd=sd)) # apply sampling
 }
 
-
+# Sample lognormal distribution
 sample.lnormal <- function(ql, q50, qh, ph, pl, pp) {
   
   skew = (qh - q50) - (q50 - ql)
@@ -29,6 +30,7 @@ sample.lnormal <- function(ql, q50, qh, ph, pl, pp) {
   return(samples)
 }
 
+# Sample beta distribution
 sample.beta <- function(ql, q50, qh, ph, pl, pp, mn.l, mx) {
   fit <- fit.beta.lowerb(ql, q50, qh, pl, ph, mn.l,mx)
   
@@ -80,6 +82,7 @@ fit.lnormal <- function(ql, q50, qh, pl, ph) {
   return(c(mu=mu,sigma=sigma,tau=tau))
 } 
 
+# fit beta distribution
 fit.beta.lowerb <- function(ql, q50, qh, pl, ph, mn.l, mx) {
   require(rriskDistributions)
   
