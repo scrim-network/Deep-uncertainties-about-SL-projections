@@ -33,7 +33,7 @@ library(lhs)
 * Source the `main_script.R` file. `main_script.R` executes the scripts in the right order and produces the main figures in the paper.
 * For further description and references, please read the paper.
 
-*Figure may look slightly different than in the paper as a results of an R-update.*
+*Figures may look slightly different than in the paper as a results of an R-update.*
 
 ## Contact
 Alexander Bakker  
