@@ -11,13 +11,11 @@ library(ggplot2)
 library(grid)
 library(gridExtra)
 
-source("get_legend.R")
+# different strategies to estimate parameters from median and higher quantile
+# and sample
 source("sampling_strategies.R")
 
-source("set_theme_AB.R")
-theme_set(theme_ali(base_size=14))
-
-# change ranges for rcp8.5 (except rcp4.5 and period 1995-2090)
+# set up component names
 components <- c("GSL", "TE", "GSIC", "GIS", "AIS", "land")
 
 # read projected GSL and (component) ranges
@@ -28,9 +26,9 @@ t0 = 1995 # start year
 tt = 2090 # sight year / time horizon
 time.span  <- tt - t0
 
-
 # ================================================================================================
-# scale given ranges to time.span
+# scale given ranges to match the time.span
+# change ranges for rcp8.5 (except rcp4.5 and period 1995-2090)
 # ================================================================================================
 # approximate start rates [mm]
 v0 <- df[,c("p05","p50","p95")]
@@ -44,7 +42,9 @@ a <- (1000*df[,c("p05","p50","p95")] + v0*(df$ref.year-df$fut.year) ) /
 
 # adjusted ranges [m]
 df[,c("p05","p50","p95")] <- (0 + v0 * time.span + a * time.span^2) / 1000
+# ================================================================================================
 
+# Extract the 90% ranges from Kopp and KNMI
 kopp90 <- as.numeric(df[which(df$Assessment=="Kopp" &
                                 df$Range     =="90%"  &
                                 df$Component =="GSL"), c("p05","p95")] )
@@ -52,8 +52,7 @@ knmi90 <- as.numeric(df[which(df$Assessment=="KNMI" &
                                 df$Range     =="90%"  &
                                 df$Component =="GSL"), c("p05","p95")] )
 
-
-# get process-based ranges as communicated by IPCC for RCP8.5 1990
+# Extract get process-based ranges as communicated by IPCC for RCP8.5 1990
 GSL  <- as.numeric(df[which(df$Assessment=="IPCC" & df$Scenario=="RCP8.5" & df$Component=="GSL"), c("p05","p50","p95")])
 TE   <- as.numeric(df[which(df$Assessment=="IPCC" & df$Scenario=="RCP8.5" & df$Component=="TE"),  c("p05","p50","p95")])
 GSIC <- as.numeric(df[which(df$Assessment=="IPCC" & df$Scenario=="RCP8.5" & df$Component=="GSIC"),c("p05","p50","p95")])
@@ -61,6 +60,10 @@ GIS  <- as.numeric(df[which(df$Assessment=="IPCC" & df$Scenario=="RCP8.5" & df$C
 AIS  <- as.numeric(df[which(df$Assessment=="IPCC" & df$Scenario=="RCP8.5" & df$Component=="AIS"),c("p05","p50","p95")])
 land <- as.numeric(df[which(df$Assessment=="IPCC" & df$Scenario=="RCP8.5" & df$Component=="land"),c("p05","p50","p95")])
 
+# ================================================================================================
+# estimate the 66, 90, and 99% range of GSL given different interpretations of the 'likely' range
+# using sampling techniques
+# ================================================================================================
 n <- 25000
 ranges <- 50:99/100
 qq     <- c(0.005,0.05,0.13,0.50,0.83,0.95,0.995)
@@ -86,7 +89,9 @@ for(i in 1:length(ranges)) {
   deep.unc[i,-1] <- c(quantile(apply(df        , 1, sum), qq))
 }
 
-# reshape data
+# ================================================================================================
+# reshape data for plotting
+# ================================================================================================
 melt.deep <- rbind(
   data.frame(
     IPCC       = deep.unc$Range,
@@ -108,27 +113,10 @@ melt.deep <- rbind(
     upper      = deep.unc$q83)
 )
 
-# semi-empirical models A1B 2100 (Table 13.6 IPCC-AR5)
-#sem <- data.frame(
-#  Assessment = rep(NA,7),
-#  p05        = rep(NA,7),
-#  p50        = rep(NA,7),
-#  p95        = rep(NA,7)
-#)
-
-#semis <- c("Horton", "Vermeer", "Grinsted-Br", "Grinsted-Mo",
-#           "Jevrejeva-Cr", "Jevrejeva-G0", "Jevrejeva-Te")
-
-#sem$Assessment <- semis
-
-#sem[1,-1] <- 1.1 * c(0.62, 0.74, 0.88)
-#sem[2,-1] <-       c(0.98, 1.24, 1.56)
-#sem[3,-1] <-       c(0.32, 0.83, 1.34)
-#sem[4,-1] <-       c(0.91, 1.12, 1.32)
-#sem[5,-1] <-       c(0.63, 0.86, 1.06)
-#sem[6,-1] <-       c(0.60, 0.75, 1.15)
-#sem[7,-1] <-       c(0.87, 1.15, 1.40)
-
+# ================================================================================================
+# create a ggplot
+# ================================================================================================
+# set colors and color labels
 clabels <-  c("Central estimate"       = "black",
               "66% range"              = "blue",
               "99% range"              = "lightblue1",
@@ -159,18 +147,15 @@ xlabels <- c("50","60","66\n(Kopp et al. 2014)","70","80","90\n(KNMI'14)","100")
 # line thickness in y-units
 yth = 0.015
 
-
+# create a ggplot
 p1 <- 
   ggplot(melt.deep[which(melt.deep$IPCC>=66),], aes(x=IPCC)) +
   scale_fill_manual("",values=colors) +
   scale_color_manual("", values=colors, breaks=names(colors), labels=names(clabels)) +
-  #geom_line(aes(y=(0.45+0.82)/2, color="IPCC 'likely' range"), size=0.8) +
+
   geom_line(aes(y=(0.45+0.82)/2, color="66%"), size=0.8) +
   geom_line(aes(y=(0.45+0.82)/2, color="90%"), size=0.8) +
   geom_line(aes(y=(0.45+0.82)/2, color="99%"), size=0.8) +
-  #geom_ribbon(aes(ymin=0.45, ymax=0.82, fill="IPCC 'likely' range")) +
-  #geom_line(aes(y=0.45), size=0.8, color="black") +
-  #geom_line(aes(y=0.82), size=0.8, color="black") +
   geom_ribbon(
     data=melt.deep[which(melt.deep$IPCC>=66),],
     aes(ymin=lower, ymax=upper, fill=Projection), alpha=1) +
@@ -188,19 +173,16 @@ p1 <-
   expand_limits(y=-0.1) +
   scale_y_continuous(limits=c(0,1.2)) +
   scale_x_continuous(limits=c(60,100), breaks=xbreaks, labels=xlabels) +
-#  guides(fill=FALSE,
-#         col = guide_legend(nrow = 4, byrow = FALSE)) +
-#  theme(legend.position="bottom",                          # legend
-#        legend.key.height = unit(1,"lines"),                 # legend
-#        legend.key=element_blank(),
-#        legend.text = element_text(size = 12),
-#        legend.background = element_rect(fill=alpha('white', 0.0)) ) +
   guides(fill=FALSE) +
   theme(legend.position="right",                          # legend
         legend.key.height = unit(1,"lines"),                 # legend
         legend.key=element_blank(),
         legend.text = element_text(size = 12),
-        legend.background = element_rect(fill=alpha('white', 0.0)) ) +
+        legend.background = element_rect(fill=alpha('white', 0.0)),
+        panel.background = element_blank(),                                    # clear background color
+        panel.grid.major = element_blank(),                                    # remove major grid
+        panel.grid.minor = element_blank(),                                    # remove major grid
+        panel.border = element_rect(colour = "black", fill=NA, size=1)) +      # add border around the plot
   geom_segment(aes(x=66, xend=99, y=0.125, yend=0.125), size=1, arrow=arrow(angle = 15, ends = "both", type = "closed")) +
   geom_segment(aes(x=62, xend=62, y=0.45, yend=0.82), size=0.5, arrow=arrow(angle = 15, ends = "both", type = "closed"), color="gold") +
   geom_segment(aes(x=62, xend=62, y=0.5, yend=0.75), size=1,  color="gold") +
@@ -209,12 +191,6 @@ p1 <-
   geom_line(aes(y=0.45, color="IPCC 'likely' range"), size=1) +
   geom_line(aes(y=0.82, color="IPCC 'likely' range"), size=1)
   
-
-#geom_line(data=data.frame(x=c(66,66), y=kopp90), aes(x=x, y=y, color="Kopp's 90% range"), size=4) +
-# geom_line(aes(y=upper, color=Projection), linetype="dashed", size=1) +
-# geom_line(aes(y=lower, color=Projection), linetype="dashed", size=1) +
-  
-
 #pdf("../../figures/likely_interpretation.pdf", paper="special", width=5, height=7.5/1.618)
 #print( p1 )
 #dev.off()
@@ -222,11 +198,15 @@ p1 <-
 #postscript("../../figures/likely_interpretation.eps", paper="special", width=5, height=7.5/1.618)
 #print(p1); dev.off()
 
+# ================================================================================================
+# Save as pdf (figure 2)
+# ================================================================================================
 pdf("../../figures/likely_interpretation.pdf", paper="special", width=7.5, height=6/1.618)
 print( p1 )
 dev.off()
 
 postscript("../../figures/likely_interpretation.eps", paper="special", width=7.5, height=6/1.618)
 print(p1); dev.off()
+# ================================================================================================
 
 
